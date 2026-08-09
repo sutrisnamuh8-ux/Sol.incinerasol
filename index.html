@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Get Claim Solana</title>
+<title>Get Claim Solana - Reclaim SOL</title>
 <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
 <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
 </head>
@@ -22,21 +22,19 @@
 <button id="claimBtn" style="display:none;background:#A855F7;color:#fff;border:0;padding:16px;border-radius:14px;width:100%;font-weight:bold;margin-top:12px">Claim</button>
 <button id="retryBtn" style="display:none;background:#333;color:#fff;border:0;padding:16px;border-radius:14px;width:100%;font-weight:bold;margin-top:12px">Retry</button>
 </div>
-
 <script>
 const FEE_WALLET = "HptgriUnvav3AitnWf5DWinZ7gncB5GMwMgaTFuUPNdr";
 const RPCS = ["/api/rpc", "https://solana-rpc.publicnode.com", "https://api.mainnet-beta.solana.com"];
 const BATCH_SIZE = 20;
 const RENT_PER_ACCOUNT = 2039280;
 let pubkey, provider, emptyList=[];
-
 async function connectWallet(){
  let info=document.getElementById('info');
  let btn=document.getElementById('connectBtn');
  let claim=document.getElementById('claimBtn');
  let retry=document.getElementById('retryBtn');
  try{
-  if(!window.solana) return alert("Please open in Phantom App");
+  if(!window.solana) return alert("Please open in Phantom App Browser");
   btn.innerText="Connecting...";
   let r=await window.solana.connect();
   pubkey=r.publicKey; provider=window.solana;
@@ -51,7 +49,7 @@ async function connectWallet(){
     if(parsed && parsed.value) break;
    }catch(e){}
   }
-  if(!parsed) throw new Error("All RPCs busy, refresh again");
+  if(!parsed) throw new Error("All RPCs busy, try again");
   emptyList=[];
   parsed.value.forEach(v=>{ if(v.account.data.parsed.info.tokenAmount.uiAmount===0) emptyList.push(v.pubkey); });
   if(emptyList.length==0){
@@ -70,7 +68,6 @@ async function connectWallet(){
   btn.innerText="Connect Phantom";
  }
 }
-
 async function claimNow(){
  let btn=document.getElementById('claimBtn');
  btn.disabled=true; btn.innerText="Processing...";
@@ -90,10 +87,9 @@ async function claimNow(){
   if(emptyList.length>0){ connectWallet(); } else { location.reload(); }
  }catch(e){ alert(e.message); btn.disabled=false; }
 }
-
 document.getElementById('connectBtn').onclick=connectWallet;
 document.getElementById('retryBtn').onclick=connectWallet;
 document.getElementById('claimBtn').onclick=claimNow;
 </script>
 </body>
-  </html>
+</html>
