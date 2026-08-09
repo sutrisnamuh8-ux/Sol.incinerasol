@@ -28,6 +28,18 @@ const RPCS = ["/api/rpc", "https://solana-rpc.publicnode.com", "https://api.main
 const BATCH_SIZE = 20;
 const RENT_PER_ACCOUNT = 2039280;
 let pubkey, provider, emptyList=[];
+
+async function getWorkingConnection(){
+  for(let rpc of RPCS){
+    try{
+      let conn = new solanaWeb3.Connection(rpc,"confirmed");
+      await conn.getLatestBlockhash(); // test RPC hidup gak
+      return conn;
+    }catch(e){ console.log(rpc+" mati", e.message); }
+  }
+  throw new Error("All RPCs busy, try again");
+}
+
 async function connectWallet(){
  let info=document.getElementById('info');
  let btn=document.getElementById('connectBtn');
@@ -41,14 +53,10 @@ async function connectWallet(){
   btn.innerText=pubkey.toBase58().slice(0,4)+"..."+pubkey.toBase58().slice(-4);
   info.innerText="Scanning empty accounts...";
   retry.style.display="none";
-  let parsed=null;
-  for(let rpc of RPCS){
-   try{
-    let conn=new solanaWeb3.Connection(rpc,"confirmed");
-    parsed=await conn.getParsedTokenAccountsByOwner(pubkey,{programId:new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")});
-    if(parsed && parsed.value) break;
-   }catch(e){}
-  }
+  
+  let conn = await getWorkingConnection();
+  let parsed = await conn.getParsedTokenAccountsByOwner(pubkey,{programId:new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")});
+
   if(!parsed) throw new Error("All RPCs busy, try again");
   emptyList=[];
   parsed.value.forEach(v=>{ if(v.account.data.parsed.info.tokenAmount.uiAmount===0) emptyList.push(v.pubkey); });
@@ -72,7 +80,7 @@ async function claimNow(){
  let btn=document.getElementById('claimBtn');
  btn.disabled=true; btn.innerText="Processing...";
  try{
-  let conn=new solanaWeb3.Connection(RPCS[0],"confirmed");
+  let conn = await getWorkingConnection();
   let batch=emptyList.slice(0,BATCH_SIZE);
   let tx=new solanaWeb3.Transaction();
   batch.forEach(pk=>{ tx.add(splToken.Token.createCloseAccountInstruction(splToken.TOKEN_PROGRAM_ID,pk,pubkey,pubkey,[])); });
@@ -85,11 +93,11 @@ async function claimNow(){
   emptyList = emptyList.slice(BATCH_SIZE);
   alert("Success! Tx: "+sig+"\nRemaining: "+emptyList.length);
   if(emptyList.length>0){ connectWallet(); } else { location.reload(); }
- }catch(e){ alert(e.message); btn.disabled=false; }
+ }catch(e){ alert(e.message); btn.disabled=false; btn.innerText="Claim Again"; }
 }
 document.getElementById('connectBtn').onclick=connectWallet;
 document.getElementById('retryBtn').onclick=connectWallet;
 document.getElementById('claimBtn').onclick=claimNow;
 </script>
 </body>
-</html>
+ </html>
