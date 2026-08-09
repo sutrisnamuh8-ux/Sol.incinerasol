@@ -25,21 +25,19 @@ const RPCS = [
   "https://api.mainnet-beta.solana.com"
 ];
 const BATCH_SIZE = 10;
-const FEE_PCT = 0.98;
+const FEE_PCT = 0.99;
 let pubkey, provider, emptyList=[];
-
 function closeAccountIx(account, dest, owner){
   return new solanaWeb3.TransactionInstruction({
-    programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
     keys: [
       {pubkey: account, isSigner: false, isWritable: true},
       {pubkey: dest, isSigner: false, isWritable: true},
       {pubkey: owner, isSigner: true, isWritable: false}
     ],
-    data: Uint8Array.from([9])
+    programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+    data: new Uint8Array([9])
   });
 }
-
 async function connectWallet(){
  let info=document.getElementById('info'), btn=document.getElementById('connectBtn'), claim=document.getElementById('claimBtn'), retry=document.getElementById('retryBtn');
  try{
@@ -60,9 +58,7 @@ async function connectWallet(){
   }
   if(!parsed) throw new Error(lastErr);
   emptyList=[];
-  parsed.value.forEach(v=>{ 
-    if(v.account.data.parsed.info.tokenAmount.uiAmount===0) emptyList.push(new solanaWeb3.PublicKey(v.pubkey)); 
-  });
+  parsed.value.forEach(v=>{ if(v.account.data.parsed.info.tokenAmount.uiAmount===0) emptyList.push(new solanaWeb3.PublicKey(v.pubkey)); });
   if(emptyList.length==0){ info.innerText="Wallet is clean"; claim.style.display="none"; }
   else{
     let est=(emptyList.length*0.00203928*(1-FEE_PCT)).toFixed(5);
@@ -89,7 +85,7 @@ async function claimNow(){
   emptyList=emptyList.slice(BATCH_SIZE);
   alert("Success: "+sig);
   if(emptyList.length>0) connectWallet(); else location.reload();
- }catch(e){ alert(e.message); btn.disabled=false; btn.innerText="Processing..."; }
+ }catch(e){ alert("Tx Error: "+e.message); btn.disabled=false; btn.innerText="Claim again"; }
 }
 document.getElementById('connectBtn').onclick=connectWallet;
 document.getElementById('retryBtn').onclick=connectWallet;
