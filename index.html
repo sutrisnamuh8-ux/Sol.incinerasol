@@ -36,7 +36,7 @@ function closeAccountIx(account, dest, owner){
       {pubkey: dest, isSigner: false, isWritable: true},
       {pubkey: owner, isSigner: true, isWritable: false}
     ],
-    data: Buffer.from([9])
+    data: Uint8Array.from([9])
   });
 }
 
