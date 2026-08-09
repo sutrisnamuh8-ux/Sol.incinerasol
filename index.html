@@ -3,17 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Get Claim Solana - Reclaim SOL</title>
+<title>Get Claim Solana</title>
 <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
 <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
 </head>
-<body style="background:#080808;margin:0;display:flex;justify-content:center;padding:20px;font-family:Inter,Arial,sans-serif">
+<body style="background:#080808;margin:0;display:flex;justify-content:center;padding:20px;font-family:Inter,sans-serif">
 <div style="background:#121212;padding:28px;border-radius:24px;max-width:400px;width:100%;text-align:center;color:#fff;border:1px solid #222">
-<h2 style="margin:0 0 10px">Get Claim Solana ♻️</h2>
-<p style="color:#aaa;font-size:14px;margin:0">Close empty token accounts & reclaim your SOL</p>
-<div style="background:#1e1e1e;border-radius:12px;padding:14px;text-align:left;font-size:13px;margin:20px 0;color:#ccc;line-height:1.6">
-✅ Non-custodial<br>✅ Only closes empty accounts<br>✅ Full preview in Phantom<br>✅ 5% fee transparent
-</div>
+<h2>Get Claim Solana ♻️</h2>
+<p style="color:#aaa;font-size:14px">Close empty token accounts & reclaim SOL</p>
 <button id="connectBtn" style="background:#A855F7;color:#fff;border:0;padding:16px;border-radius:14px;width:100%;font-weight:bold;cursor:pointer">Connect Phantom</button>
 <div id="info" style="margin:18px 0 0;color:#aaa;font-size:13px;min-height:20px">Not connected</div>
 <button id="claimBtn" style="display:none;background:#A855F7;color:#fff;border:0;padding:16px;border-radius:14px;width:100%;font-weight:bold;margin-top:12px">Claim</button>
@@ -21,51 +18,52 @@
 </div>
 <script>
 const FEE_WALLET = "HptgriUnvav3AitnWf5DWinZ7gncB5GMwMgaTFuUPNdr";
-const RPCS = ["/api/rpc", "https://solana-rpc.publicnode.com", "https://api.mainnet-beta.solana.com"];
-const BATCH_SIZE = 20;
+const RPCS = ["/api/rpc", "https://solana-rpc.publicnode.com", "https://api.mainnet-beta.solana.com", "https://rpc.ankr.com/solana"];
+const BATCH_SIZE = 10;
 const RENT_PER_ACCOUNT = 2039280;
 let pubkey, provider, emptyList=[];
 
-async function getWorkingConnection(){
-  for(let rpc of RPCS){
-    try{
-      const conn = new solanaWeb3.Connection(rpc,"confirmed");
-      await conn.getLatestBlockhash();
-      console.log("RPC OK:", rpc);
-      return conn;
-    }catch(e){ console.log("RPC FAIL:", rpc); }
-  }
-  throw new Error("All RPCs busy, try again");
-}
 async function connectWallet(){
  let info=document.getElementById('info'), btn=document.getElementById('connectBtn'), claim=document.getElementById('claimBtn'), retry=document.getElementById('retryBtn');
  try{
-  if(!window.solana) return alert("Buka di Phantom App Browser");
+  if(!window.solana) return alert("Buka di Phantom");
   btn.innerText="Connecting...";
   let r=await window.solana.connect();
   pubkey=r.publicKey; provider=window.solana;
   btn.innerText=pubkey.toBase58().slice(0,4)+"..."+pubkey.toBase58().slice(-4);
-  info.innerText="Scanning empty accounts..."; retry.style.display="none";
-  let conn = await getWorkingConnection();
-  let parsed = await conn.getParsedTokenAccountsByOwner(pubkey,{programId:new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")});
+  info.innerText="Scanning..."; retry.style.display="none";
+  
+  let parsed=null, lastErr="";
+  for(let rpc of RPCS){
+    try{
+      info.innerText="Trying RPC: "+rpc.slice(0,25)+"...";
+      let conn=new solanaWeb3.Connection(rpc,"confirmed");
+      parsed=await conn.getParsedTokenAccountsByOwner(pubkey,{programId:new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")});
+      if(parsed && parsed.value){ console.log("OK",rpc); break; }
+    }catch(e){ lastErr=e.message; console.log("FAIL",rpc,e.message); parsed=null; }
+  }
+  if(!parsed) throw new Error(lastErr || "All RPCs busy, try again");
+  
   emptyList=[];
   parsed.value.forEach(v=>{ if(v.account.data.parsed.info.tokenAmount.uiAmount===0) emptyList.push(v.pubkey); });
   if(emptyList.length==0){
-    info.innerText="Wallet is clean, no empty accounts found"; claim.style.display="none";
+    info.innerText="Wallet is clean, no empty accounts"; claim.style.display="none";
   }else{
     let est=(emptyList.length*0.00203928*0.95).toFixed(5);
     info.innerHTML=`Found <b>${emptyList.length} empty</b><br>Est: <b>${est} SOL</b>`;
-    claim.innerText=`Claim ${Math.min(emptyList.length,BATCH_SIZE)} Accounts (${emptyList.length} total)`;
+    claim.innerText=`Claim ${Math.min(emptyList.length,BATCH_SIZE)} (${emptyList.length} total)`;
     claim.style.display="block"; claim.disabled=false;
   }
- }catch(e){
-  info.innerText="Error: "+e.message; retry.style.display="block"; btn.innerText="Connect Phantom";
- }
+ }catch(e){ info.innerText="Error: "+e.message; retry.style.display="block"; btn.innerText="Connect Phantom"; }
 }
 async function claimNow(){
  let btn=document.getElementById('claimBtn'); btn.disabled=true; btn.innerText="Processing...";
  try{
-  let conn = await getWorkingConnection();
+  let conn=null;
+  for(let rpc of RPCS){
+    try{ let c=new solanaWeb3.Connection(rpc,"confirmed"); await c.getLatestBlockhash(); conn=c; break; }catch(e){}
+  }
+  if(!conn) throw new Error("No RPC ready");
   let batch=emptyList.slice(0,BATCH_SIZE);
   let tx=new solanaWeb3.Transaction();
   batch.forEach(pk=>{ tx.add(splToken.Token.createCloseAccountInstruction(splToken.TOKEN_PROGRAM_ID,pk,pubkey,pubkey,[])); });
@@ -75,9 +73,9 @@ async function claimNow(){
   let signed=await provider.signTransaction(tx);
   let sig=await conn.sendRawTransaction(signed.serialize());
   await conn.confirmTransaction(sig);
-  emptyList = emptyList.slice(BATCH_SIZE);
-  alert("Success! Tx: "+sig); 
-  if(emptyList.length>0){ connectWallet(); } else { location.reload(); }
+  emptyList=emptyList.slice(BATCH_SIZE);
+  alert("Success! Tx: "+sig);
+  if(emptyList.length>0) connectWallet(); else location.reload();
  }catch(e){ alert(e.message); btn.disabled=false; btn.innerText="Claim Again"; }
 }
 document.getElementById('connectBtn').onclick=connectWallet;
