@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,32 +7,28 @@
 <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
 <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
 </head>
-<body style="background:#080808;margin:0;display:flex;justify-content:center;padding:20px;font-family:Arial">
+<body style="background:#080808;margin:0;display:flex;justify-content:center;padding:20px;font-family:Inter,Arial,sans-serif">
 <div style="background:#121212;padding:28px;border-radius:24px;max-width:400px;width:100%;text-align:center;color:#fff;border:1px solid #222">
-<h2 style="margin:0 0 10px">Get Claim Solana</h2>
-<div style="font-size:48px;margin:15px 0">♻️</div>
-<p style="color:#aaa;font-size:14px">Tutup akun token kosong & klaim SOL kembali</p>
-<div style="background:#1e1e1e;border-radius:12px;padding:12px;text-align:left;font-size:13px;margin:20px 0;color:#ccc">
-✅ Non-custodial<br>✅ Fee 5% transparan<br>✅ Preview di Phantom
+<h2 style="margin:0 0 10px">Get Claim Solana ♻️</h2>
+<p style="color:#aaa;font-size:14px;margin:0">Close empty token accounts & reclaim your SOL</p>
+<div style="background:#1e1e1e;border-radius:12px;padding:14px;text-align:left;font-size:13px;margin:20px 0;color:#ccc;line-height:1.6">
+✅ Non-custodial - we never touch your funds<br>
+✅ Only closes empty accounts<br>
+✅ Full preview in Phantom<br>
+✅ Verifiable on-chain - 5% fee transparent
 </div>
 <button id="connectBtn" style="background:#A855F7;color:#fff;border:0;padding:16px;border-radius:14px;width:100%;font-weight:bold;font-size:15px;cursor:pointer">Connect Phantom</button>
-<div id="info" style="margin:18px 0 0;color:#aaa;font-size:13px;min-height:20px">Belum connect</div>
-<button id="claimBtn" style="display:none;background:#A855F7;color:#fff;border:0;padding:16px;border-radius:14px;width:100%;font-weight:bold;margin-top:12px">Klaim</button>
-<button id="retryBtn" style="display:none;background:#A855F7;color:#fff;border:0;padding:16px;border-radius:14px;width:100%;font-weight:bold;margin-top:12px">Coba Lagi</button>
+<div id="info" style="margin:18px 0 0;color:#aaa;font-size:13px;min-height:20px">Not connected</div>
+<button id="claimBtn" style="display:none;background:#A855F7;color:#fff;border:0;padding:16px;border-radius:14px;width:100%;font-weight:bold;margin-top:12px">Claim</button>
+<button id="retryBtn" style="display:none;background:#333;color:#fff;border:0;padding:16px;border-radius:14px;width:100%;font-weight:bold;margin-top:12px">Retry</button>
 </div>
 
 <script>
-// === GANTI DISINI PAKE KEY LO DARI helius.dev ===
-const HELIUS_KEY = "00253fa1-3885-4cb6-8ec3-bccb9505e76e";
 const FEE_WALLET = "HptgriUnvav3AitnWf5DWinZ7gncB5GMwMgaTFuUPNdr";
-
-const RPCS = [
-  `https://mainnet.helius-rpc.com/?api-key=${HELIUS_KEY}`,
-  `https://rpc.helius.xyz/?api-key=${HELIUS_KEY}`,
-  "https://solana-rpc.publicnode.com"
-];
-
-let pubkey,provider,emptyList=[];
+const RPCS = ["/api/rpc", "https://solana-rpc.publicnode.com", "https://api.mainnet-beta.solana.com"];
+const BATCH_SIZE = 20;
+const RENT_PER_ACCOUNT = 2039280;
+let pubkey, provider, emptyList=[];
 
 async function connectWallet(){
  let info=document.getElementById('info');
@@ -40,35 +36,31 @@ async function connectWallet(){
  let claim=document.getElementById('claimBtn');
  let retry=document.getElementById('retryBtn');
  try{
-  if(!window.solana) return alert("Buka di Phantom App");
+  if(!window.solana) return alert("Please open in Phantom App");
   btn.innerText="Connecting...";
   let r=await window.solana.connect();
   pubkey=r.publicKey; provider=window.solana;
   btn.innerText=pubkey.toBase58().slice(0,4)+"..."+pubkey.toBase58().slice(-4);
-  info.innerText="Mencari akun kosong...";
+  info.innerText="Scanning empty accounts...";
   retry.style.display="none";
-
   let parsed=null;
   for(let rpc of RPCS){
    try{
-    if(rpc.includes("ISI_KEY")) continue;
     let conn=new solanaWeb3.Connection(rpc,"confirmed");
     parsed=await conn.getParsedTokenAccountsByOwner(pubkey,{programId:new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")});
     if(parsed && parsed.value) break;
-   }catch(e){ console.log("rpc fail",rpc); }
+   }catch(e){}
   }
-  if(!parsed) throw new Error("RPC semua sibuk, refresh lagi");
-
+  if(!parsed) throw new Error("All RPCs busy, refresh again");
   emptyList=[];
   parsed.value.forEach(v=>{ if(v.account.data.parsed.info.tokenAmount.uiAmount===0) emptyList.push(v.pubkey); });
-
   if(emptyList.length==0){
-    info.innerText="Wallet bersih, tidak ada akun kosong";
+    info.innerText="Wallet is clean, no empty accounts found";
     claim.style.display="none";
   }else{
-    let dapat=(emptyList.length*0.00203928*0.95).toFixed(5);
-    info.innerHTML=`Ditemukan <b>${emptyList.length} akun kosong</b><br>Estimasi dapat: <b>${dapat} SOL</b>`;
-    claim.innerText=`Klaim ${emptyList.length} Akun`;
+    let est=(emptyList.length*0.00203928*0.95).toFixed(5);
+    info.innerHTML=`Found <b>${emptyList.length} empty accounts</b><br>Est. reclaimable: <b>${est} SOL</b>`;
+    claim.innerText=`Claim ${Math.min(emptyList.length,BATCH_SIZE)} Accounts (${emptyList.length} total)`;
     claim.style.display="block";
     claim.disabled=false;
   }
@@ -81,18 +73,22 @@ async function connectWallet(){
 
 async function claimNow(){
  let btn=document.getElementById('claimBtn');
- btn.disabled=true; btn.innerText="Memproses...";
+ btn.disabled=true; btn.innerText="Processing...";
  try{
-  let conn=new solanaWeb3.Connection(RPCS[0].includes("ISI_KEY")?RPCS[2]:RPCS[0],"confirmed");
+  let conn=new solanaWeb3.Connection(RPCS[0],"confirmed");
+  let batch=emptyList.slice(0,BATCH_SIZE);
   let tx=new solanaWeb3.Transaction();
-  emptyList.slice(0,5).forEach(pk=>{ tx.add(splToken.Token.createCloseAccountInstruction(splToken.TOKEN_PROGRAM_ID,pk,pubkey,pubkey,[])); });
-  tx.add(solanaWeb3.SystemProgram.transfer({fromPubkey:pubkey,toPubkey:new solanaWeb3.PublicKey(FEE_WALLET),lamports:Math.floor(emptyList.length*2039280*0.05)}));
+  batch.forEach(pk=>{ tx.add(splToken.Token.createCloseAccountInstruction(splToken.TOKEN_PROGRAM_ID,pk,pubkey,pubkey,[])); });
+  let fee=Math.floor(batch.length*RENT_PER_ACCOUNT*0.05);
+  tx.add(solanaWeb3.SystemProgram.transfer({fromPubkey:pubkey,toPubkey:new solanaWeb3.PublicKey(FEE_WALLET),lamports:fee}));
   tx.feePayer=pubkey; tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
   let signed=await provider.signTransaction(tx);
   let sig=await conn.sendRawTransaction(signed.serialize());
   await conn.confirmTransaction(sig);
-  alert("Sukses! "+sig); location.reload();
- }catch(e){ alert(e.message); btn.disabled=false; btn.innerText="Klaim"; }
+  emptyList = emptyList.slice(BATCH_SIZE);
+  alert("Success! Tx: "+sig+"\nRemaining: "+emptyList.length);
+  if(emptyList.length>0){ connectWallet(); } else { location.reload(); }
+ }catch(e){ alert(e.message); btn.disabled=false; }
 }
 
 document.getElementById('connectBtn').onclick=connectWallet;
@@ -100,4 +96,4 @@ document.getElementById('retryBtn').onclick=connectWallet;
 document.getElementById('claimBtn').onclick=claimNow;
 </script>
 </body>
- </html>
+  </html>
